@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
-from .config import settings
-from .routers import webhook, messaging
+from config import settings
+from routers import webhook, messaging
 
 # Configure root logger
 logging.basicConfig(
