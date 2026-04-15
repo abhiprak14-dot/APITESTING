@@ -3,7 +3,6 @@ from pydantic import BaseModel
 import logging
 from config import settings
 from models.custom_api import Template
-
 logger = logging.getLogger(__name__)
 
 class WhatsAppClient:
@@ -32,7 +31,6 @@ class WhatsAppClient:
                 raise e
 
     async def send_text_message(self, to: str, body: str) -> dict:
-        """Sends a simple text message via WhatsApp API."""
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -43,12 +41,64 @@ class WhatsAppClient:
         return await self._send_request(payload)
 
     async def send_template_message(self, to: str, template: Template) -> dict:
-        """Sends a template message via WhatsApp API."""
         payload = {
             "messaging_product": "whatsapp",
             "to": to,
             "type": "template",
             "template": template.model_dump(exclude_none=True)
+        }
+        return await self._send_request(payload)
+
+    async def upload_media(self, image_bytes: bytes) -> str:
+        url = f"{settings.whatsapp_graph_url}/{settings.whatsapp_phone_number_id}/media"
+        files = {
+            "file": ("screenshot.png", image_bytes, "image/png"),
+            "type": (None, "image/png"),
+            "messaging_product": (None, "whatsapp")
+        }
+        headers = {"Authorization": f"Bearer {settings.whatsapp_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, files=files, headers=headers)
+            response.raise_for_status()
+            return response.json()["id"]
+
+    async def send_template_with_image(
+        self,
+        to: str,
+        media_id: str,
+        template_name: str,
+        page_url: str
+    ) -> dict:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en_US"},
+                "components": [
+                    {
+                        "type": "header",
+                        "parameters": [
+                            {
+                                "type": "image",
+                                "image": {"id": media_id}
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": 0,
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": page_url
+                            }
+                        ]
+                    }
+                ]
+            }
         }
         return await self._send_request(payload)
 

@@ -50,3 +50,31 @@ async def send_custom_template(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send message via WhatsApp API"
         )
+
+@router.post("/send-report")
+async def send_report(
+    to_phone_number: str,
+    page_url: str,
+    template_name: str,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Screenshots a URL and sends it as a WhatsApp template message
+    with an image header and a URL button.
+    """
+    from services.screenshot import screenshot_url
+    
+    # 1. Screenshot the page
+    image_bytes = await screenshot_url(page_url)
+    
+    # 2. Upload to Meta
+    media_id = await whatsapp_client.upload_media(image_bytes)
+    
+    # 3. Send WhatsApp message
+    response = await whatsapp_client.send_template_with_image(
+        to=to_phone_number,
+        media_id=media_id,
+        template_name=template_name,
+        page_url=page_url
+    )
+    return {"status": "success", "data": response}
