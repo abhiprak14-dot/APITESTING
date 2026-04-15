@@ -1,8 +1,8 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
-from ..auth import get_api_key
-from ..models.custom_api import SendTextRequest, SendTemplateRequest
-from ..services.whatsapp_client import whatsapp_client
+from auth import get_api_key
+from models.custom_api import SendTextRequest, SendTemplateRequest
+from services.whatsapp_client import whatsapp_client
 
 router = APIRouter(prefix="/api/messages", tags=["Messaging"])
 logger = logging.getLogger(__name__)

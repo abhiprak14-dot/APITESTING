@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Request, Query, HTTPException, status
-from ..config import settings
-from ..models.whatsapp import WebhookPayload
+from config import settings
+from models.whatsapp import WebhookPayload
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 

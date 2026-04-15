@@ -1,8 +1,8 @@
 import httpx
 from pydantic import BaseModel
 import logging
-from ..config import settings
-from ..models.custom_api import Template
+from config import settings
+from models.custom_api import Template
 
 logger = logging.getLogger(__name__)
 
