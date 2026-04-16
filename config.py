@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Application settings
     log_level: str = "INFO"
 
+    # Screenshot API
+    screenshot_api_key: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -1,10 +1,18 @@
-from playwright.async_api import async_playwright
+import httpx
+from config import settings
 
 async def screenshot_url(url: str) -> bytes:
-    async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        page = await browser.new_page(viewport={"width": 1200, "height": 630})
-        await page.goto(url, wait_until="networkidle")
-        screenshot = await page.screenshot(full_page=False)
-        await browser.close()
-        return screenshot
+    """Takes a screenshot of a URL using ScreenshotOne API"""
+    api_url = "https://api.screenshotone.com/take"
+    params = {
+        "access_key": settings.screenshot_api_key,
+        "url": url,
+        "format": "png",
+        "viewport_width": 1200,
+        "viewport_height": 630,
+        "full_page": "false"
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(api_url, params=params)
+        response.raise_for_status()
+        return response.content
