@@ -2,18 +2,21 @@ import httpx
 from config import settings
 
 async def screenshot_url(url: str) -> bytes:
-    """Takes a screenshot of a URL using ScreenshotOne API"""
-    api_url = "https://api.screenshotone.com/take"
-    params = {
-        "access_key": settings.screenshot_api_key,
+    """Takes a screenshot of a URL using Browserless API"""
+    api_url = f"https://production-sfo.browserless.io/screenshot?token={settings.browserless_api_key}"
+    payload = {
         "url": url,
-        "format": "png",
-        "viewport_width": 680,
-        "viewport_height": 900,
-        "full_page": "true",
-        "delay": 2
+        "options": {
+            "fullPage": True,
+            "type": "png"
+        },
+        "viewport": {
+            "width": 680,
+            "height": 900
+        },
+        "waitFor": 2000
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(api_url, params=params)
+        response = await client.post(api_url, json=payload)
         response.raise_for_status()
         return response.content

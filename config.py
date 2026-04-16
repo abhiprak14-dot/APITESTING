@@ -16,8 +16,9 @@ class Settings(BaseSettings):
     # Application settings
     log_level: str = "INFO"
 
-    # Screenshot API
+    # Screenshot APIs
     screenshot_api_key: str = ""
+    browserless_api_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
