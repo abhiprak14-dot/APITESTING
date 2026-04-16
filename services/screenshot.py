@@ -10,7 +10,7 @@ async def screenshot_url(url: str) -> bytes:
         "format": "png",
         "viewport_width": 1200,
         "viewport_height": 630,
-        "full_page": "false"
+        "full_page": "true"
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(api_url, params=params)
