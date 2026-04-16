@@ -25,5 +25,10 @@ async def screenshot_html(html: str, css: str = "") -> bytes:
             "https://jsfiddle.net/api/post/library/pure/",
             data={"html": html, "css": css, "wrap": "b"}
         )
-        fiddle_url = str(fiddle_response.url) + "show/"
+        # Get the final URL after redirect e.g. https://jsfiddle.net/abc123/
+        fiddle_url = str(fiddle_response.url)
+        # Remove trailing slash and add /show
+        fiddle_url = fiddle_url.rstrip("/") + "/show"
+    
+    print(f"JSFiddle URL: {fiddle_url}")
     return await screenshot_url(fiddle_url)
