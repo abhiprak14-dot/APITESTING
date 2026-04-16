@@ -62,13 +62,7 @@ class WhatsAppClient:
             response.raise_for_status()
             return response.json()["id"]
 
-    async def send_template_with_image(
-        self,
-        to: str,
-        media_id: str,
-        template_name: str,
-        page_url: str
-    ) -> dict:
+    async def send_template_with_image(self, to: str, media_id: str, template_name: str, page_url: str) -> dict:
         payload = {
             "messaging_product": "whatsapp",
             "to": to,
@@ -79,23 +73,13 @@ class WhatsAppClient:
                 "components": [
                     {
                         "type": "header",
-                        "parameters": [
-                            {
-                                "type": "image",
-                                "image": {"id": media_id}
-                            }
-                        ]
+                        "parameters": [{"type": "image", "image": {"id": media_id}}]
                     },
                     {
                         "type": "button",
                         "sub_type": "url",
                         "index": 0,
-                        "parameters": [
-                            {
-                                "type": "text",
-                                "text": page_url
-                            }
-                        ]
+                        "parameters": [{"type": "text", "text": page_url}]
                     }
                 ]
             }
