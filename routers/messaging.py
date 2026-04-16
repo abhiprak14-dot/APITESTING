@@ -90,3 +90,18 @@ async def test_screenshot(
     
     image_bytes = await screenshot_url(page_url)
     return Response(content=image_bytes, media_type="image/png")
+
+@router.get("/test-jsfiddle-screenshot")
+async def test_jsfiddle_screenshot(
+    api_key: str = Depends(get_api_key)
+):
+    """Test JSFiddle POST API screenshot"""
+    from services.screenshot import screenshot_html
+    from fastapi.responses import Response
+    import os
+    
+    with open("morning_SINGLE_7AM.html", "r") as f:
+        html_content = f.read()
+    
+    image_bytes = await screenshot_html(html_content)
+    return Response(content=image_bytes, media_type="image/png")
