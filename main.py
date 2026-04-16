@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from config import settings
 from routers import webhook, messaging
 
@@ -19,6 +20,11 @@ app = FastAPI(
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "WhatsApp Integration API is running"}
+
+# Serve report HTML
+@app.get("/report")
+async def get_report():
+    return FileResponse("morning_SINGLE_7AM.html")
 
 # Include application routers
 app.include_router(webhook.router)
