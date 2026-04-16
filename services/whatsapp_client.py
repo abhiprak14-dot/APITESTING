@@ -76,9 +76,7 @@ class WhatsAppClient:
                         "parameters": [{"type": "image", "image": {"id": media_id}}]
                     },
                     {
-                        "type": "button",
-                        "sub_type": "url",
-                        "index": 0,
+                        "type": "body",
                         "parameters": [{"type": "text", "text": page_url}]
                     }
                 ]
