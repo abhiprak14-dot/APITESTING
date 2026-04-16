@@ -86,4 +86,16 @@ class WhatsAppClient:
         }
         return await self._send_request(payload)
 
+    async def send_image_with_caption(self, to: str, media_id: str, caption: str) -> dict:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "image",
+            "image": {
+                "id": media_id,
+                "caption": caption
+            }
+        }
+        return await self._send_request(payload)
+
 whatsapp_client = WhatsAppClient()
