@@ -78,3 +78,15 @@ async def send_report(
         page_url=page_url
     )
     return {"status": "success", "data": response}
+
+@router.get("/test-screenshot")
+async def test_screenshot(
+    page_url: str,
+    api_key: str = Depends(get_api_key)
+):
+    """Test endpoint to verify Playwright screenshot works on Render"""
+    from services.screenshot import screenshot_url
+    from fastapi.responses import Response
+    
+    image_bytes = await screenshot_url(page_url)
+    return Response(content=image_bytes, media_type="image/png")
