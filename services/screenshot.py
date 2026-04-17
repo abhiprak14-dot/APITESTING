@@ -9,6 +9,7 @@ def normalize_jsfiddle_url(url: str) -> str:
 
 async def screenshot_url(url: str) -> bytes:
     url = normalize_jsfiddle_url(url)
+    print(f"Screenshotting URL: {url}")  # ← debug log
 
     api_url = "https://api.screenshotone.com/take"
     params = {
@@ -30,19 +31,28 @@ async def screenshot_url(url: str) -> bytes:
 
 async def screenshot_html(html: str, css: str = "") -> bytes:
     """Posts HTML to JSFiddle API and screenshots the result."""
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+
+    # Step 1: Post to JSFiddle WITHOUT follow_redirects to capture the Location header
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
         fiddle_response = await client.post(
             "https://jsfiddle.net/api/post/library/pure/",
             data={"html": html, "css": css, "wrap": "b"}
         )
 
-        if fiddle_response.history:
-            location = fiddle_response.history[-1].headers.get("location", "")
-            fiddle_url = location if location.startswith("http") else str(fiddle_response.url)
-        else:
-            fiddle_url = str(fiddle_response.url)
+    # Step 2: Extract redirect URL from Location header
+    location = fiddle_response.headers.get("location", "")
+    print(f"JSFiddle redirect location: {location}")  # ← debug log
 
-        fiddle_url = fiddle_url.rstrip("/") + "/show"
+    if not location:
+        raise ValueError(f"JSFiddle did not redirect. Status: {fiddle_response.status_code}")
 
-    print(f"JSFiddle URL: {fiddle_url}")
+    # Step 3: Build full URL if location is relative (e.g. /abc123/)
+    if location.startswith("/"):
+        fiddle_url = "https://jsfiddle.net" + location
+    else:
+        fiddle_url = location
+
+    fiddle_url = fiddle_url.rstrip("/") + "/show"
+    print(f"Final JSFiddle URL: {fiddle_url}")  # ← debug log
+
     return await screenshot_url(fiddle_url)
