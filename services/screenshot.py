@@ -44,7 +44,8 @@ async def post_to_jsfiddle(html: str, css: str = "") -> str:
     async with httpx.AsyncClient(
         timeout=60.0,
         follow_redirects=False,
-        proxy=proxy_url,  # ← fixed: was 'proxies'
+        proxy=proxy_url,
+        verify=False,  # ← fix: disable SSL verification for proxy
         headers=headers
     ) as client:
         home = await client.get("https://jsfiddle.net/")
