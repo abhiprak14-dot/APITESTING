@@ -1,4 +1,5 @@
 import httpx
+import re
 from config import settings
 
 def normalize_jsfiddle_url(url: str) -> str:
@@ -30,15 +31,13 @@ async def screenshot_url(url: str) -> bytes:
         return response.content
 
 async def screenshot_html(html: str, css: str = "") -> bytes:
-    """Posts HTML to JSFiddle API mimicking a real browser request."""
+    """Posts HTML to JSFiddle API with CSRF token extracted from homepage."""
 
-    # Full browser-like headers to bypass JSFiddle's 403
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "Content-Type": "application/x-www-form-urlencoded",
         "Origin": "https://jsfiddle.net",
         "Referer": "https://jsfiddle.net/",
         "Sec-Fetch-Site": "same-origin",
@@ -50,32 +49,52 @@ async def screenshot_html(html: str, css: str = "") -> bytes:
         "Connection": "keep-alive",
     }
 
-    # Use a persistent session to carry cookies (like a real browser)
     async with httpx.AsyncClient(
         timeout=30.0,
         follow_redirects=False,
         headers=headers
     ) as client:
-        # Step 1: Visit JSFiddle homepage first to get session cookies
-        await client.get("https://jsfiddle.net/")
-        print("Got JSFiddle session cookies")
 
-        # Step 2: POST the HTML with cookies in place
+        # Step 1: GET homepage to collect cookies + CSRF token
+        home = await client.get("https://jsfiddle.net/")
+        print(f"Homepage status: {home.status_code}")
+        print(f"Cookies after homepage: {dict(client.cookies)}")
+
+        # Step 2: Extract CSRF token from cookie or HTML
+        csrf_token = client.cookies.get("csrftoken", "")
+
+        if not csrf_token:
+            # Try extracting from HTML as fallback
+            match = re.search(r'csrfmiddlewaretoken["\s]+value="([^"]+)"', home.text)
+            if match:
+                csrf_token = match.group(1)
+
+        print(f"CSRF token: {csrf_token}")
+
+        # Step 3: POST with CSRF token in body
         fiddle_response = await client.post(
             "https://jsfiddle.net/api/post/library/pure/",
-            data={"html": html, "css": css, "wrap": "b"}
+            data={
+                "html": html,
+                "css": css,
+                "wrap": "b",
+                "csrfmiddlewaretoken": csrf_token  # ← key fix
+            },
+            headers={
+                **headers,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrf_token,  # ← some Django apps check header too
+            }
         )
 
     print(f"JSFiddle POST status: {fiddle_response.status_code}")
-    print(f"JSFiddle headers: {dict(fiddle_response.headers)}")
 
     if fiddle_response.status_code not in (301, 302, 303):
         raise ValueError(
             f"JSFiddle did not redirect. Status: {fiddle_response.status_code}, "
-            f"Body: {fiddle_response.text[:200]}"
+            f"Body preview: {fiddle_response.content[:100]}"
         )
 
-    # Step 3: Extract redirect location
     location = fiddle_response.headers.get("location", "")
     print(f"JSFiddle redirect location: {location}")
 
