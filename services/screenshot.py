@@ -2,8 +2,6 @@ import httpx
 import re
 from config import settings
 
-SCRAPER_API_KEY = settings.scraper_api_key  # add this to your .env
-
 def normalize_jsfiddle_url(url: str) -> str:
     url = url.rstrip("/")
     if "jsfiddle.net" in url and not url.endswith("/show"):
@@ -32,10 +30,7 @@ async def screenshot_url(url: str) -> bytes:
         return response.content
 
 async def post_to_jsfiddle(html: str, css: str = "") -> str:
-    """POST to JSFiddle via ScraperAPI residential proxy to bypass IP block."""
-
-    # ScraperAPI proxies the request through residential IPs
-    proxy_url = f"http://scraperapi:{SCRAPER_API_KEY}@proxy-server.scraperapi.com:8001"
+    proxy_url = f"http://scraperapi:{settings.scraper_api_key}@proxy-server.scraperapi.com:8001"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -49,21 +44,18 @@ async def post_to_jsfiddle(html: str, css: str = "") -> str:
     async with httpx.AsyncClient(
         timeout=60.0,
         follow_redirects=False,
-        proxies={"https://": proxy_url},
+        proxy=proxy_url,  # ← fixed: was 'proxies'
         headers=headers
     ) as client:
-        # Step 1: GET homepage to collect cookies
         home = await client.get("https://jsfiddle.net/")
         print(f"Homepage via proxy: {home.status_code}")
 
-        # Step 2: Extract CSRF token
         csrf = client.cookies.get("csrftoken", "")
         if not csrf:
             match = re.search(r'csrfmiddlewaretoken.*?value="([^"]+)"', home.text)
             csrf = match.group(1) if match else ""
         print(f"CSRF: {csrf}")
 
-        # Step 3: POST with CSRF
         response = await client.post(
             "https://jsfiddle.net/api/post/library/pure/",
             data={"html": html, "css": css, "wrap": "b", "csrfmiddlewaretoken": csrf},
@@ -76,7 +68,6 @@ async def post_to_jsfiddle(html: str, css: str = "") -> str:
 
         location = response.headers.get("location", "")
         if not location and response.status_code == 200:
-            # Try extracting from response body
             match = re.search(r'"url"\s*:\s*"([^"]+)"', response.text)
             location = match.group(1) if match else ""
 
