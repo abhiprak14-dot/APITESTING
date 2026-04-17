@@ -2,6 +2,8 @@ import httpx
 import re
 from config import settings
 
+SCRAPER_API_KEY = settings.scraper_api_key  # add this to your .env
+
 def normalize_jsfiddle_url(url: str) -> str:
     url = url.rstrip("/")
     if "jsfiddle.net" in url and not url.endswith("/show"):
@@ -11,7 +13,6 @@ def normalize_jsfiddle_url(url: str) -> str:
 async def screenshot_url(url: str) -> bytes:
     url = normalize_jsfiddle_url(url)
     print(f"Screenshotting URL: {url}")
-
     api_url = "https://api.screenshotone.com/take"
     params = {
         "access_key": settings.screenshot_api_key,
@@ -30,73 +31,60 @@ async def screenshot_url(url: str) -> bytes:
         response.raise_for_status()
         return response.content
 
-async def screenshot_html(html: str, css: str = "") -> bytes:
-    """Posts HTML to JSFiddle API with CSRF token extracted from homepage."""
+async def post_to_jsfiddle(html: str, css: str = "") -> str:
+    """POST to JSFiddle via ScraperAPI residential proxy to bypass IP block."""
+
+    # ScraperAPI proxies the request through residential IPs
+    proxy_url = f"http://scraperapi:{SCRAPER_API_KEY}@proxy-server.scraperapi.com:8001"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
         "Origin": "https://jsfiddle.net",
         "Referer": "https://jsfiddle.net/",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"macOS"',
-        "Connection": "keep-alive",
+        "X-Requested-With": "XMLHttpRequest",
     }
 
     async with httpx.AsyncClient(
-        timeout=30.0,
+        timeout=60.0,
         follow_redirects=False,
+        proxies={"https://": proxy_url},
         headers=headers
     ) as client:
-
-        # Step 1: GET homepage to collect cookies + CSRF token
+        # Step 1: GET homepage to collect cookies
         home = await client.get("https://jsfiddle.net/")
-        print(f"Homepage status: {home.status_code}")
-        print(f"Cookies after homepage: {dict(client.cookies)}")
+        print(f"Homepage via proxy: {home.status_code}")
 
-        # Step 2: Extract CSRF token from cookie or HTML
-        csrf_token = client.cookies.get("csrftoken", "")
+        # Step 2: Extract CSRF token
+        csrf = client.cookies.get("csrftoken", "")
+        if not csrf:
+            match = re.search(r'csrfmiddlewaretoken.*?value="([^"]+)"', home.text)
+            csrf = match.group(1) if match else ""
+        print(f"CSRF: {csrf}")
 
-        if not csrf_token:
-            # Try extracting from HTML as fallback
-            match = re.search(r'csrfmiddlewaretoken["\s]+value="([^"]+)"', home.text)
-            if match:
-                csrf_token = match.group(1)
-
-        print(f"CSRF token: {csrf_token}")
-
-        # Step 3: POST with CSRF token in body
-        fiddle_response = await client.post(
+        # Step 3: POST with CSRF
+        response = await client.post(
             "https://jsfiddle.net/api/post/library/pure/",
-            data={
-                "html": html,
-                "css": css,
-                "wrap": "b",
-                "csrfmiddlewaretoken": csrf_token  # ← key fix
-            },
-            headers={
-                **headers,
-                "Content-Type": "application/x-www-form-urlencoded",
-                "X-CSRFToken": csrf_token,  # ← some Django apps check header too
-            }
+            data={"html": html, "css": css, "wrap": "b", "csrfmiddlewaretoken": csrf},
+            headers={**headers, "X-CSRFToken": csrf}
         )
+        print(f"POST status via proxy: {response.status_code}")
 
-    print(f"JSFiddle POST status: {fiddle_response.status_code}")
+        if response.status_code not in (200, 301, 302, 303):
+            raise ValueError(f"JSFiddle POST failed. Status: {response.status_code}")
 
-    if fiddle_response.status_code not in (301, 302, 303):
-        raise ValueError(
-            f"JSFiddle did not redirect. Status: {fiddle_response.status_code}, "
-            f"Body preview: {fiddle_response.content[:100]}"
-        )
+        location = response.headers.get("location", "")
+        if not location and response.status_code == 200:
+            # Try extracting from response body
+            match = re.search(r'"url"\s*:\s*"([^"]+)"', response.text)
+            location = match.group(1) if match else ""
 
-    location = fiddle_response.headers.get("location", "")
-    print(f"JSFiddle redirect location: {location}")
+        print(f"Location: {location}")
+        return location
+
+async def screenshot_html(html: str, css: str = "") -> bytes:
+    location = await post_to_jsfiddle(html, css)
 
     if location.startswith("/"):
         fiddle_url = "https://jsfiddle.net" + location
@@ -104,6 +92,5 @@ async def screenshot_html(html: str, css: str = "") -> bytes:
         fiddle_url = location
 
     fiddle_url = fiddle_url.rstrip("/") + "/show"
-    print(f"Final JSFiddle URL: {fiddle_url}")
-
+    print(f"Final URL: {fiddle_url}")
     return await screenshot_url(fiddle_url)
