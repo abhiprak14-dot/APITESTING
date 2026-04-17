@@ -45,11 +45,11 @@ async def post_to_jsfiddle(html: str, css: str = "") -> str:
         timeout=60.0,
         follow_redirects=False,
         proxy=proxy_url,
-        verify=False,  # ← fix: disable SSL verification for proxy
+        verify=False,
         headers=headers
     ) as client:
         home = await client.get("https://jsfiddle.net/")
-        print(f"Homepage via proxy: {home.status_code}")
+        print(f"Homepage status: {home.status_code}")
 
         csrf = client.cookies.get("csrftoken", "")
         if not csrf:
@@ -62,27 +62,26 @@ async def post_to_jsfiddle(html: str, css: str = "") -> str:
             data={"html": html, "css": css, "wrap": "b", "csrfmiddlewaretoken": csrf},
             headers={**headers, "X-CSRFToken": csrf}
         )
-        print(f"POST status via proxy: {response.status_code}")
+        print(f"POST status: {response.status_code}")
+        print(f"POST headers: {dict(response.headers)}")
+        print(f"POST body preview: {response.text[:300]}")
 
-        if response.status_code not in (200, 301, 302, 303):
-            raise ValueError(f"JSFiddle POST failed. Status: {response.status_code}")
-
+        # Check for redirect in location header
         location = response.headers.get("location", "")
-        if not location and response.status_code == 200:
-            match = re.search(r'"url"\s*:\s*"([^"]+)"', response.text)
-            location = match.group(1) if match else ""
+        print(f"Location header: '{location}'")
 
-        print(f"Location: {location}")
+        if not location:
+            raise ValueError(
+                f"No redirect from JSFiddle. Status: {response.status_code}. "
+                f"Body: {response.text[:200]}"
+            )
+
+        if location.startswith("/"):
+            return "https://jsfiddle.net" + location
         return location
 
 async def screenshot_html(html: str, css: str = "") -> bytes:
-    location = await post_to_jsfiddle(html, css)
-
-    if location.startswith("/"):
-        fiddle_url = "https://jsfiddle.net" + location
-    else:
-        fiddle_url = location
-
+    fiddle_url = await post_to_jsfiddle(html, css)
     fiddle_url = fiddle_url.rstrip("/") + "/show"
     print(f"Final URL: {fiddle_url}")
     return await screenshot_url(fiddle_url)
