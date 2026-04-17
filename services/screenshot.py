@@ -1,16 +1,18 @@
 import httpx
-import re
 from config import settings
 
-def normalize_jsfiddle_url(url: str) -> str:
-    url = url.rstrip("/")
-    if "jsfiddle.net" in url and not url.endswith("/show"):
-        url = url + "/show"
-    return url
+async def screenshot_url(url: str, delay: int = 5) -> bytes:
+    """
+    Takes a screenshot of any public URL.
+    Uses ScreenshotOne on Render, Playwright in production.
+    """
+    if settings.use_playwright:
+        return await _playwright_screenshot(url)
+    else:
+        return await _screenshotone_screenshot(url, delay)
 
-async def screenshot_url(url: str) -> bytes:
-    url = normalize_jsfiddle_url(url)
-    print(f"Screenshotting URL: {url}")
+async def _screenshotone_screenshot(url: str, delay: int = 5) -> bytes:
+    """Uses ScreenshotOne API"""
     api_url = "https://api.screenshotone.com/take"
     params = {
         "access_key": settings.screenshot_api_key,
@@ -19,69 +21,21 @@ async def screenshot_url(url: str) -> bytes:
         "viewport_width": 680,
         "viewport_height": 900,
         "full_page": "true",
-        "delay": 3,
-        "block_cookie_banners": "true",
-        "block_ads": "true",
-        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        "delay": delay
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params)
         response.raise_for_status()
         return response.content
 
-async def post_to_jsfiddle(html: str, css: str = "") -> str:
-    proxy_url = f"http://scraperapi:{settings.scraper_api_key}@proxy-server.scraperapi.com:8001"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Origin": "https://jsfiddle.net",
-        "Referer": "https://jsfiddle.net/",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-
-    async with httpx.AsyncClient(
-        timeout=60.0,
-        follow_redirects=False,
-        proxy=proxy_url,
-        verify=False,
-        headers=headers
-    ) as client:
-        home = await client.get("https://jsfiddle.net/")
-        print(f"Homepage status: {home.status_code}")
-
-        csrf = client.cookies.get("csrftoken", "")
-        if not csrf:
-            match = re.search(r'csrfmiddlewaretoken.*?value="([^"]+)"', home.text)
-            csrf = match.group(1) if match else ""
-        print(f"CSRF: {csrf}")
-
-        response = await client.post(
-            "https://jsfiddle.net/api/post/library/pure/",
-            data={"html": html, "css": css, "wrap": "b", "csrfmiddlewaretoken": csrf},
-            headers={**headers, "X-CSRFToken": csrf}
-        )
-        print(f"POST status: {response.status_code}")
-        print(f"POST headers: {dict(response.headers)}")
-        print(f"POST body preview: {response.text[:300]}")
-
-        # Check for redirect in location header
-        location = response.headers.get("location", "")
-        print(f"Location header: '{location}'")
-
-        if not location:
-            raise ValueError(
-                f"No redirect from JSFiddle. Status: {response.status_code}. "
-                f"Body: {response.text[:200]}"
-            )
-
-        if location.startswith("/"):
-            return "https://jsfiddle.net" + location
-        return location
-
-async def screenshot_html(html: str, css: str = "") -> bytes:
-    fiddle_url = await post_to_jsfiddle(html, css)
-    fiddle_url = fiddle_url.rstrip("/") + "/show"
-    print(f"Final URL: {fiddle_url}")
-    return await screenshot_url(fiddle_url)
+async def _playwright_screenshot(url: str) -> bytes:
+    """Uses Playwright - for production with Docker"""
+    from playwright.async_api import async_playwright
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page(viewport={"width": 680, "height": 900})
+        await page.goto(url, wait_until="networkidle")
+        await page.wait_for_timeout(5000)
+        screenshot = await page.screenshot(full_page=True)
+        await browser.close()
+        return screenshot
