@@ -89,11 +89,66 @@ class WhatsAppClient:
             "messaging_product": "whatsapp",
             "to": to,
             "type": "image",
-            "image": {
-                "id": media_id,
-                "caption": caption
-            }
+            "image": {"id": media_id, "caption": caption}
         }
         return await self._send_request(payload)
+
+    async def send_report_via_relay(
+        self,
+        to: str,
+        image_url: str,
+        user_name: str,
+        report_url: str
+    ) -> dict:
+        """Send report via messaginghub relay API"""
+        url = f"{settings.relay_api_url}/messages"
+        headers = {
+            "x-api-key": settings.relay_api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "template",
+            "template": {
+                "name": settings.relay_template_name,
+                "language": {"code": "en"},
+                "components": [
+                    {
+                        "type": "header",
+                        "parameters": [
+                            {
+                                "type": "image",
+                                "image": {"link": image_url}
+                            }
+                        ]
+                    },
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": user_name
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": report_url
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            return response.json()
 
 whatsapp_client = WhatsAppClient()

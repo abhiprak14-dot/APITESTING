@@ -1,13 +1,11 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    # WhatsApp API Credentials
+    # WhatsApp API Credentials (Meta direct)
     whatsapp_token: str = ""
     whatsapp_phone_number_id: str = ""
     webhook_verify_token: str = "my_secure_verify_token"
     app_secret: str = ""
-    
-    # Base URL for WhatsApp Graph API
     whatsapp_graph_url: str = "https://graph.facebook.com/v19.0"
 
     # Custom API Security
@@ -20,13 +18,16 @@ class Settings(BaseSettings):
     screenshot_api_key: str = ""
     browserless_api_key: str = ""
 
-    # Toggle between ScreenshotOne and Playwright
-    # False = ScreenshotOne (Render/testing)
-    # True = Playwright (production/Docker)
+    # Toggle Playwright vs ScreenshotOne
     use_playwright: bool = False
 
-    # Server URL for report hosting
+    # Server URL for hosting screenshots and reports
     server_url: str = "https://test123-h6ew.onrender.com"
+
+    # Relay API settings (messaginghub)
+    relay_api_url: str = "https://messaginghub.solutions/relaybridge/api/v1/meta/694a3e0324a85a1a6121b9a4"
+    relay_api_key: str = "8722c1e72ef544f29392b1916a2863c4"
+    relay_template_name: str = "report"
 
     model_config = SettingsConfigDict(
         env_file=".env",

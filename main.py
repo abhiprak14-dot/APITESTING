@@ -1,7 +1,7 @@
 import logging
 import uuid
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from config import settings
 from routers import webhook, messaging
 
@@ -16,11 +16,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# In-memory report storage
+# In-memory storage
 reports = {}
+screenshots = {}
 
 def inject_open_in_browser(html: str, report_url: str) -> str:
-    """Injects an Open in Browser button into the HTML"""
     button = f"""
     <a href="{report_url}" target="_blank"
        style="position:fixed; bottom:20px; right:20px;
@@ -39,7 +39,6 @@ async def root():
 
 @app.post("/upload-report")
 async def upload_report(html_content: str):
-    """Store HTML and return a public URL"""
     report_id = str(uuid.uuid4())
     report_url = f"{settings.server_url}/report/{report_id}"
     reports[report_id] = inject_open_in_browser(html_content, report_url)
@@ -47,15 +46,24 @@ async def upload_report(html_content: str):
 
 @app.get("/report/{report_id}")
 async def get_report(report_id: str):
-    """Serve a stored HTML report"""
     if report_id not in reports:
         return HTMLResponse(content="<h1>Report not found</h1>", status_code=404)
     return HTMLResponse(content=reports[report_id])
 
 @app.get("/report")
 async def get_static_report():
-    """Serve the static morning report for testing"""
     return FileResponse("morning_SINGLE_7AM.html")
+
+@app.post("/store-screenshot")
+async def store_screenshot(screenshot_id: str, image_bytes: bytes):
+    screenshots[screenshot_id] = image_bytes
+    return {"url": f"{settings.server_url}/screenshots/{screenshot_id}"}
+
+@app.get("/screenshots/{screenshot_id}")
+async def get_screenshot(screenshot_id: str):
+    if screenshot_id not in screenshots:
+        return Response(status_code=404)
+    return Response(content=screenshots[screenshot_id], media_type="image/png")
 
 app.include_router(webhook.router)
 app.include_router(messaging.router)

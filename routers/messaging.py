@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from auth import get_api_key
 from models.custom_api import SendTextRequest, SendTemplateRequest
 from services.whatsapp_client import whatsapp_client
-from services.screenshot import screenshot_url
+from services.screenshot import screenshot_url, host_screenshot
 
 router = APIRouter(prefix="/api/messages", tags=["Messaging"])
 logger = logging.getLogger(__name__)
@@ -15,7 +15,6 @@ async def send_custom_text(
     request: SendTextRequest,
     api_key: str = Depends(get_api_key)
 ):
-    """Sends a text message to a WhatsApp user."""
     try:
         response = await whatsapp_client.send_text_message(
             to=request.to_phone_number,
@@ -34,7 +33,6 @@ async def send_custom_template(
     request: SendTemplateRequest,
     api_key: str = Depends(get_api_key)
 ):
-    """Sends a template message to a WhatsApp user."""
     try:
         response = await whatsapp_client.send_template_message(
             to=request.to_phone_number,
@@ -55,7 +53,7 @@ async def send_report(
     template_name: str,
     api_key: str = Depends(get_api_key)
 ):
-    """Screenshots a URL and sends it as a WhatsApp template message."""
+    """Screenshots a URL and sends via Meta direct API."""
     image_bytes = await screenshot_url(page_url)
     media_id = await whatsapp_client.upload_media(image_bytes)
     response = await whatsapp_client.send_template_with_image(
@@ -66,46 +64,34 @@ async def send_report(
     )
     return {"status": "success", "data": response}
 
-@router.post("/send-html-report")
-async def send_html_report(
+@router.post("/send-report-relay")
+async def send_report_relay(
     to_phone_number: str,
-    template_name: str,
-    file: UploadFile = File(...),
+    report_url: str,
+    user_name: str,
     api_key: str = Depends(get_api_key)
 ):
     """
-    Accepts an HTML file, hosts it, screenshots it,
-    and sends via WhatsApp with image + link.
-    Works for any HTML — dashboards, maps, reports.
+    Screenshots a report URL, hosts the image on our server,
+    and sends via messaginghub relay API.
+    No Meta token or phone number ID needed.
     """
-    # 1. Read HTML content
-    html_content = (await file.read()).decode("utf-8")
-
-    # 2. Upload to our server and get public URL
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            "http://localhost:10000/upload-report",
-            params={"html_content": html_content}
-        )
-        report_data = response.json()
-        report_url = report_data["url"]
-
-    # 3. Screenshot the public URL
+    # 1. Screenshot the report
     image_bytes = await screenshot_url(report_url)
 
-    # 4. Upload image to Meta
-    media_id = await whatsapp_client.upload_media(image_bytes)
+    # 2. Host screenshot on our own server
+    image_url = await host_screenshot(image_bytes)
 
-    # 5. Send WhatsApp message with image + link
-    response = await whatsapp_client.send_template_with_image(
+    # 3. Send via relay API
+    response = await whatsapp_client.send_report_via_relay(
         to=to_phone_number,
-        media_id=media_id,
-        template_name=template_name,
-        page_url=report_url
+        image_url=image_url,
+        user_name=user_name,
+        report_url=report_url
     )
     return {
         "status": "success",
-        "report_url": report_url,
+        "image_url": image_url,
         "data": response
     }
 
