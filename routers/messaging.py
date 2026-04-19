@@ -72,25 +72,43 @@ async def send_report_relay(
     api_key: str = Depends(get_api_key)
 ):
     """
-    Screenshots a report URL, hosts the image on our server,
-    and sends via messaginghub relay API.
-    No Meta token or phone number ID needed.
+    1. Fetches HTML from report URL
+    2. Stores it on Render at /report/{id}
+    3. Screenshots the Render URL
+    4. Hosts screenshot on Render at /screenshots/{id}
+    5. Sends via relay API with Render URLs (no expiry, no link shortener)
     """
-    # 1. Screenshot the report
-    image_bytes = await screenshot_url(report_url)
+    import uuid
+    from main import reports
+    from config import settings
 
-    # 2. Host screenshot on our own server
+    # 1. Fetch HTML from report URL
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        html_response = await client.get(report_url)
+        html_response.raise_for_status()
+        html_content = html_response.text
+
+    # 2. Store HTML on Render
+    report_id = str(uuid.uuid4())
+    hosted_report_url = f"{settings.server_url}/report/{report_id}"
+    reports[report_id] = html_content
+
+    # 3. Screenshot the Render URL
+    image_bytes = await screenshot_url(hosted_report_url)
+
+    # 4. Host screenshot on Render
     image_url = await host_screenshot(image_bytes)
 
-    # 3. Send via relay API
+    # 5. Send via relay API with Render URLs
     response = await whatsapp_client.send_report_via_relay(
         to=to_phone_number,
         image_url=image_url,
         user_name=user_name,
-        report_url=report_url
+        report_url=hosted_report_url  # Render URL - never expires
     )
     return {
         "status": "success",
+        "hosted_report_url": hosted_report_url,
         "image_url": image_url,
         "data": response
     }
