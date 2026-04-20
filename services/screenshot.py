@@ -25,31 +25,13 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "viewport_width": 680,
         "viewport_height": 900,
         "full_page": "true",
-        "delay": delay
+        "delay": delay,
+        "scroll_to": "0,0"
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params)
         response.raise_for_status()
-        image_bytes = response.content
-
-    # Auto crop black borders from top using PIL
-    img = Image.open(io.BytesIO(image_bytes))
-    width, height = img.size
-
-    # Find first non-black row from top
-    top_crop = 0
-    for y in range(height):
-        row_pixels = [img.getpixel((x, y)) for x in range(0, width, 10)]
-        avg_brightness = sum(sum(p[:3]) for p in row_pixels) / (len(row_pixels) * 3)
-        if avg_brightness > 20:
-            top_crop = y
-            break
-
-    # Crop from first non-black row
-    img_cropped = img.crop((0, top_crop, width, height))
-    output = io.BytesIO()
-    img_cropped.save(output, format="PNG")
-    return output.getvalue()
+        return response.content
 
 async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
     from playwright.async_api import async_playwright
