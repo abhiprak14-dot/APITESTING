@@ -72,11 +72,8 @@ async def send_report_relay(
     api_key: str = Depends(get_api_key)
 ):
     """
-    1. Screenshots the report URL
-    2. Hosts screenshot on our Render server
-    3. Sends via relay API with:
-       - image hosted on Render (no expiry)
-       - report link sent as separate text message (bypasses link shortener)
+    Screenshots report, hosts on Render, sends via relay API.
+    URL included in body text - no link shortener.
     """
     # 1. Screenshot the report
     image_bytes = await screenshot_url(report_url)
@@ -84,18 +81,12 @@ async def send_report_relay(
     # 2. Host screenshot on Render
     image_url = await host_screenshot(image_bytes)
 
-    # 3. Send template with image
+    # 3. Send via relay API with URL in body
     response = await whatsapp_client.send_report_via_relay(
         to=to_phone_number,
         image_url=image_url,
         user_name=user_name,
         report_url=report_url
-    )
-
-    # 4. Send report URL as separate text message (bypasses link shortener)
-    await whatsapp_client.send_text_message(
-        to=to_phone_number,
-        body=f"View your full report here:\n{report_url}"
     )
 
     return {
