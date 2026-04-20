@@ -17,6 +17,10 @@ async def host_screenshot(image_bytes: bytes) -> str:
     return f"{settings.server_url}/screenshots/{screenshot_id}"
 
 async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
+    """
+    Captures full report with no black borders.
+    Report starts at top of image so WhatsApp preview shows header.
+    """
     api_url = "https://api.screenshotone.com/take"
     params = {
         "access_key": settings.screenshot_api_key,
@@ -25,12 +29,33 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "viewport_width": 680,
         "viewport_height": 900,
         "full_page": "true",
-        "delay": delay
+        "delay": delay,
+        "css": "body { background: transparent !important; } .stage, .email-frame { margin: 0 !important; padding: 0 !important; }"
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params)
         response.raise_for_status()
-        return response.content
+        image_bytes = response.content
+
+    # Crop black borders from top using PIL
+    img = Image.open(io.BytesIO(image_bytes))
+    width, height = img.size
+
+    # Find first non-black row from top
+    top_crop = 0
+    for y in range(height):
+        row_pixels = [img.getpixel((x, y)) for x in range(0, width, 10)]
+        avg_brightness = sum(sum(p[:3]) for p in row_pixels) / (len(row_pixels) * 3)
+        if avg_brightness > 20:  # Not black
+            top_crop = y
+            break
+
+    # Crop from first non-black row
+    img_cropped = img.crop((0, top_crop, width, height))
+    
+    output = io.BytesIO()
+    img_cropped.save(output, format="PNG")
+    return output.getvalue()
 
 async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
     from playwright.async_api import async_playwright
