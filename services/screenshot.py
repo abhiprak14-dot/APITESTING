@@ -18,6 +18,9 @@ async def host_screenshot(image_bytes: bytes) -> str:
 
 async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
     api_url = "https://api.screenshotone.com/take"
+    # Add #top to force page to start at top
+    if "#" not in url:
+        url = url + "#top"
     params = {
         "access_key": settings.screenshot_api_key,
         "url": url,
@@ -38,6 +41,8 @@ async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
         browser = await p.chromium.launch()
         page = await browser.new_page(viewport={"width": 1400, "height": 900})
         await page.goto(url, wait_until="networkidle")
+        # Scroll to top
+        await page.evaluate("window.scrollTo(0, 0)")
         await page.wait_for_timeout(delay_ms)
 
         report_box = await page.evaluate('''() => {
