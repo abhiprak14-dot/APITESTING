@@ -100,7 +100,7 @@ class WhatsAppClient:
         user_name: str,
         report_url: str
     ) -> dict:
-        """Send report via messaginghub relay API"""
+        """Send report via messaginghub relay API using report_new template"""
         url = f"{settings.relay_api_url}/messages"
         headers = {
             "x-api-key": settings.relay_api_key,
@@ -129,17 +129,10 @@ class WhatsAppClient:
                             {
                                 "type": "text",
                                 "text": user_name
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "url",
-                        "index": "0",
-                        "parameters": [
+                            },
                             {
                                 "type": "text",
-                                "text": report_url
+                                "text": report_url  # Full URL in body - no shortener
                             }
                         ]
                     }

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Relay API settings (messaginghub)
     relay_api_url: str = "https://messaginghub.solutions/relaybridge/api/v1/meta/694a3e0324a85a1a6121b9a4"
     relay_api_key: str = "8722c1e72ef544f29392b1916a2863c4"
-    relay_template_name: str = "report"
+    relay_template_name: str = "report_new"
 
     model_config = SettingsConfigDict(
         env_file=".env",
