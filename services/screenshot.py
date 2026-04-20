@@ -25,8 +25,7 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "viewport_width": 680,
         "viewport_height": 900,
         "full_page": "true",
-        "delay": delay,
-        "scroll_to": "0,0"
+        "delay": delay
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params)
