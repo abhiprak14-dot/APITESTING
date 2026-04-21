@@ -1,12 +1,11 @@
 import httpx
 import io
 import uuid
-from urllib.parse import unquote_plus
+from urllib.parse import unquote_plus, quote
 from PIL import Image
 from config import settings
 
 async def screenshot_url(url: str, delay: int = 10) -> bytes:
-    # Fix any encoding issues
     url = unquote_plus(url)
     if settings.use_playwright:
         return await _playwright_screenshot(url, delay)
@@ -20,19 +19,21 @@ async def host_screenshot(image_bytes: bytes) -> str:
     return f"{settings.server_url}/screenshots/{screenshot_id}"
 
 async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
-    # Build URL manually to avoid double encoding
-    api_url = (
-        f"https://api.screenshotone.com/take"
+    api_url = "https://api.screenshotone.com/take"
+    # Pass url as encoded param to avoid issues
+    encoded_url = quote(url, safe='')
+    full_url = (
+        f"{api_url}"
         f"?access_key={settings.screenshot_api_key}"
+        f"&url={encoded_url}"
         f"&format=png"
         f"&viewport_width=700"
         f"&viewport_height=700"
         f"&full_page=false"
         f"&delay={delay}"
-        f"&url={httpx.URL(url)}"
     )
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(api_url)
+        response = await client.get(full_url)
         response.raise_for_status()
         return response.content
 
