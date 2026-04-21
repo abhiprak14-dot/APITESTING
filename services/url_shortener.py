@@ -13,4 +13,4 @@ def shorten_url(long_url: str) -> str:
         return response.json()["short_url"]
     except Exception as e:
         print(f"URL shortening failed: {e}")
-        return long_url  # fallback to original if shortener is down
+        return long_url

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import logging
 from config import settings
 from models.custom_api import Template
+from services.url_shortener import shorten_url
 logger = logging.getLogger(__name__)
 
 class WhatsAppClient:
@@ -102,6 +103,7 @@ class WhatsAppClient:
         report_url: str
     ) -> dict:
         """Send report via messaginghub relay API"""
+        report_url = shorten_url(report_url)
         url = f"{settings.relay_api_url}/messages"
         headers = {
             "x-api-key": settings.relay_api_key,
@@ -133,7 +135,7 @@ class WhatsAppClient:
                             },
                             {
                                 "type": "text",
-                                "text": report_url  # Pass as-is, relay handles encoding
+                                "text": report_url
                             }
                         ]
                     }
