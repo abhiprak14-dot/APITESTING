@@ -22,7 +22,7 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "access_key": settings.screenshot_api_key,
         "url": url,
         "format": "png",
-        "viewport_width": 680,
+        "viewport_width": 1400,
         "viewport_height": 900,
         "full_page": "true",
         "delay": delay
@@ -30,22 +30,13 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params)
         response.raise_for_status()
-        image_bytes = response.content
-
-    # Crop to top portion at WhatsApp ratio
-    img = Image.open(io.BytesIO(image_bytes))
-    width = img.size[0]
-    whatsapp_height = int(width / 1.91)
-    img_cropped = img.crop((0, 0, width, whatsapp_height))
-    output = io.BytesIO()
-    img_cropped.save(output, format="PNG")
-    return output.getvalue()
+        return response.content
 
 async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        page = await browser.new_page(viewport={"width": 680, "height": 900})
+        page = await browser.new_page(viewport={"width": 1400, "height": 900})
         await page.goto(url, wait_until="networkidle")
         await page.evaluate("window.scrollTo(0, 0)")
         await page.wait_for_timeout(delay_ms)
@@ -59,17 +50,13 @@ async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
                     width: rect.width, height: rect.height};
         }''')
 
-        # Crop to top portion at WhatsApp ratio
-        width = report_box["width"]
-        whatsapp_height = width / 1.91
-
         screenshot = await page.screenshot(
-            full_page=False,
+            full_page=True,
             clip={
                 "x": report_box["x"],
                 "y": report_box["y"],
-                "width": width,
-                "height": whatsapp_height
+                "width": report_box["width"],
+                "height": report_box["height"]
             }
         )
         await browser.close()
