@@ -23,8 +23,8 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "url": url,
         "format": "png",
         "viewport_width": 700,
-        "viewport_height": 366,  # 700/1.91 = exact WhatsApp ratio
-        "full_page": "false",    # Only top portion
+        "viewport_height": 700,  # Taller to capture more content
+        "full_page": "false",
         "delay": delay
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -36,7 +36,7 @@ async def _playwright_screenshot(url: str, delay_ms: int = 10000) -> bytes:
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        page = await browser.new_page(viewport={"width": 700, "height": 366})
+        page = await browser.new_page(viewport={"width": 700, "height": 700})
         await page.goto(url, wait_until="networkidle")
         await page.evaluate("window.scrollTo(0, 0)")
         await page.wait_for_timeout(delay_ms)
