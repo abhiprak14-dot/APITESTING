@@ -1,10 +1,13 @@
 import httpx
 import io
 import uuid
+from urllib.parse import unquote_plus
 from PIL import Image
 from config import settings
 
 async def screenshot_url(url: str, delay: int = 10) -> bytes:
+    # Fix URL encoding issues
+    url = unquote_plus(url)
     if settings.use_playwright:
         return await _playwright_screenshot(url, delay)
     else:
@@ -23,7 +26,7 @@ async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
         "url": url,
         "format": "png",
         "viewport_width": 700,
-        "viewport_height": 700,  # Taller to capture more content
+        "viewport_height": 700,
         "full_page": "false",
         "delay": delay
     }
