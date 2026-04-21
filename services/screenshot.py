@@ -6,7 +6,7 @@ from PIL import Image
 from config import settings
 
 async def screenshot_url(url: str, delay: int = 10) -> bytes:
-    # Fix URL encoding issues
+    # Fix any encoding issues
     url = unquote_plus(url)
     if settings.use_playwright:
         return await _playwright_screenshot(url, delay)
@@ -20,18 +20,19 @@ async def host_screenshot(image_bytes: bytes) -> str:
     return f"{settings.server_url}/screenshots/{screenshot_id}"
 
 async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
-    api_url = "https://api.screenshotone.com/take"
-    params = {
-        "access_key": settings.screenshot_api_key,
-        "url": url,
-        "format": "png",
-        "viewport_width": 700,
-        "viewport_height": 700,
-        "full_page": "false",
-        "delay": delay
-    }
+    # Build URL manually to avoid double encoding
+    api_url = (
+        f"https://api.screenshotone.com/take"
+        f"?access_key={settings.screenshot_api_key}"
+        f"&format=png"
+        f"&viewport_width=700"
+        f"&viewport_height=700"
+        f"&full_page=false"
+        f"&delay={delay}"
+        f"&url={httpx.URL(url)}"
+    )
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(api_url, params=params)
+        response = await client.get(api_url)
         response.raise_for_status()
         return response.content
 
