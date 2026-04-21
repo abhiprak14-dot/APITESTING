@@ -1,5 +1,6 @@
 import logging
 import httpx
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import Response
 from auth import get_api_key
@@ -53,7 +54,6 @@ async def send_report(
     template_name: str,
     api_key: str = Depends(get_api_key)
 ):
-    """Screenshots a URL and sends via Meta direct API."""
     image_bytes = await screenshot_url(page_url)
     media_id = await whatsapp_client.upload_media(image_bytes)
     response = await whatsapp_client.send_template_with_image(
@@ -71,17 +71,17 @@ async def send_report_relay(
     user_name: str,
     api_key: str = Depends(get_api_key)
 ):
-    """
-    Screenshots report, hosts on Render, sends via relay API.
-    URL included in body text - no link shortener.
-    """
+    # Decode URL in case it comes encoded
+    from urllib.parse import unquote
+    report_url = unquote(report_url)
+
     # 1. Screenshot the report
     image_bytes = await screenshot_url(report_url)
 
     # 2. Host screenshot on Render
     image_url = await host_screenshot(image_bytes)
 
-    # 3. Send via relay API with URL in body
+    # 3. Send via relay API
     response = await whatsapp_client.send_report_via_relay(
         to=to_phone_number,
         image_url=image_url,
@@ -100,6 +100,7 @@ async def test_screenshot(
     page_url: str,
     api_key: str = Depends(get_api_key)
 ):
-    """Test screenshot of any URL"""
+    from urllib.parse import unquote
+    page_url = unquote(page_url)
     image_bytes = await screenshot_url(page_url)
     return Response(content=image_bytes, media_type="image/png")
