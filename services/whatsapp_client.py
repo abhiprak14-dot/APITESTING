@@ -1,4 +1,5 @@
 import httpx
+from urllib.parse import quote
 from pydantic import BaseModel
 import logging
 from config import settings
@@ -100,7 +101,7 @@ class WhatsAppClient:
         user_name: str,
         report_url: str
     ) -> dict:
-        """Send report via messaginghub relay API using report_new template"""
+        """Send report via messaginghub relay API"""
         url = f"{settings.relay_api_url}/messages"
         headers = {
             "x-api-key": settings.relay_api_key,
@@ -132,7 +133,7 @@ class WhatsAppClient:
                             },
                             {
                                 "type": "text",
-                                "text": report_url  # Full URL in body - no shortener
+                                "text": report_url  # Pass as-is, relay handles encoding
                             }
                         ]
                     }
