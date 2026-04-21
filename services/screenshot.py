@@ -1,12 +1,10 @@
 import httpx
 import io
 import uuid
-from urllib.parse import unquote_plus, quote
 from PIL import Image
 from config import settings
 
 async def screenshot_url(url: str, delay: int = 10) -> bytes:
-    url = unquote_plus(url)
     if settings.use_playwright:
         return await _playwright_screenshot(url, delay)
     else:
@@ -20,20 +18,17 @@ async def host_screenshot(image_bytes: bytes) -> str:
 
 async def _screenshotone_screenshot(url: str, delay: int = 10) -> bytes:
     api_url = "https://api.screenshotone.com/take"
-    # Pass url as encoded param to avoid issues
-    encoded_url = quote(url, safe='')
-    full_url = (
-        f"{api_url}"
-        f"?access_key={settings.screenshot_api_key}"
-        f"&url={encoded_url}"
-        f"&format=png"
-        f"&viewport_width=700"
-        f"&viewport_height=700"
-        f"&full_page=false"
-        f"&delay={delay}"
-    )
+    params = {
+        "access_key": settings.screenshot_api_key,
+        "url": url,
+        "format": "png",
+        "viewport_width": 700,
+        "viewport_height": 700,
+        "full_page": "false",
+        "delay": delay
+    }
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(full_url)
+        response = await client.get(api_url, params=params)
         response.raise_for_status()
         return response.content
 
